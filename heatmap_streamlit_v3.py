@@ -424,4 +424,4 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
-st.caption(f"전체 기업 수: {len(DF):,}")
+st.caption(f"필터링된 기업 수: {len(DF):,}")
