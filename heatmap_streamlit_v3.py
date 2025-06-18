@@ -69,7 +69,7 @@ def load_data(seed: int = 42, n: int = 1_000) -> pd.DataFrame:
     df.loc[df["Country"] == "Unclassified", "Country"] = np.nan
     return df
 
-DF_RAW = load_data()
+DF_RAW = load_data(n=10_000_000)
 
 # ---------------------------------------------------------------------------
 # 2. Sidebar: Filters & Controls
