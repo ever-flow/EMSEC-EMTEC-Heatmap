@@ -11,7 +11,11 @@ import numpy as np
 import plotly.graph_objects as go
 from typing import Callable
 
-st.set_page_config(page_title="EMSEC × EMTEC Dashboard", layout="wide")
+st.set_page_config(
+    page_title="EMSEC × EMTEC Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 ###############################################################################
 # 0. Global CSS (간격‧폰트)
