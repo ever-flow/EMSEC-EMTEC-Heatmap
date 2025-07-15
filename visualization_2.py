@@ -48,7 +48,7 @@ def parse_emtec_list(txt: str) -> List[str]:
 ###############################################################################
 @st.cache_data(show_spinner=True)
 def load_raw() -> pd.DataFrame:
-    src = "C:/Users/gimyo/OneDrive/Desktop/heatmap_data_with_SE_v2.xlsx"
+    src = "data/heatmap_data_with_SE_v2.xlsx"
     df  = pd.read_excel(src, sheet_name="Sheet1")
 
     emsec_cols = [f"EMSEC{i}" for i in range(1, 6)]
