@@ -53,7 +53,7 @@ def convert_to_usd(value, country):
 @st.cache_data(show_spinner=True)
 def load_real_data() -> pd.DataFrame:
     """실제 데이터를 로드하고 전처리하는 함수"""
-    df = pd.read_excel('C:/Users/gimyo/OneDrive/Desktop/heatmap_data_with_SE_v2.xlsx', sheet_name='Sheet1')
+    df = pd.read_excel('data/heatmap_data_with_SE_v2.xlsx', sheet_name='Sheet1')
     # EMSEC1~5가 모두 결측인 기업 제외
     emsec_cols = [f'EMSEC{i}' for i in range(1, 6)]
     has_emsec = df[emsec_cols].notna().any(axis=1)
