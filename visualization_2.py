@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Streamlit · EMSEC × EMTEC 〈시각화 02 – 규모 변수〉
-ver 1.8 · 2025-07-10
-(Subtotal Tooltip 0 표기 버그 수정 – text 배열 주입)
+ver 1.9 · 2025-07-16
+(Heatmap 간격 추가, 동적 글자색 적용)
 
 주요 변경
 ─────────────────────────────────────────────────────────
-1. 각 Heatmap Trace에 text 배열(콤마 포맷)을 주입하고 hovertemplate에서 %{text} 사용
-2. hoverinfo="skip" 대신 hovertemplate 지정으로 x/y 라벨 유지
-3. 기타 로직·UI 동일
+1. Heatmap에 xgap=1, ygap=1 추가로 셀 간 구분선 삽입
+2. Annotation 글자색을 z값에 따라 동적으로 설정 (밝은 셀: 검정, 어두운 셀: 흰색)
+3. 기존 text 배열 주입 및 hovertemplate 로직 유지
 """
 
 ###############################################################################
@@ -208,14 +208,14 @@ with st.sidebar:
 DF = DF_ALL[DF_ALL.Year == year_sel].copy()
 
 if country_filter: DF = DF[DF.Country == country_filter]
-if market_filter:  DF = DF[DF.Market  == market_filter]
+if  market_filter: DF = DF[DF.Market  == market_filter]
 
 if class_type == "EMSEC":
     if sector_sel   != "전체": DF = DF[DF.Sector   == sector_sel]
     if industry_sel != "전체": DF = DF[DF.Industry == industry_sel]
 else:
     if theme_sel != "전체": DF = DF[DF.Theme      == theme_sel]
-    if tech_sel  != "전체": DF = DF[DF.Technology  == tech_sel]
+    if tech_sel  != "전체": DF = DF[DF.Technology == tech_sel]
 
 if metric_col not in DF.columns:
     st.error(f"'{metric_name}' 열이 없습니다.")
@@ -278,7 +278,7 @@ subtotal.index=["Subtotal"]
 pivot_full = pd.concat([subtotal,pivot])
 
 ###############################################################################
-# 7. 히트맵 (text 배열 주입으로 Tooltip 0 문제 해결)
+# 7. 히트맵 (간격 추가, 동적 글자색 적용)
 ###############################################################################
 rows = pivot_full.index.tolist()
 
@@ -292,7 +292,7 @@ text_sub = fmt(z_sub.values)
 
 heat_sub = go.Heatmap(
     z=z_sub.values, x=bin_labels, y=rows,
-    colorscale="Greys", xgap=0, ygap=0,
+    colorscale="Greys", xgap=1, ygap=1,     # 간격 추가
     showscale=False,
     text=text_sub,
     hovertemplate="Subtotal/%{x}<br>기업수 %{text}<extra></extra>",
@@ -306,7 +306,7 @@ text_data = fmt(z_data.values)
 
 heat_data = go.Heatmap(
     z=z_data.values, x=bin_labels, y=rows,
-    colorscale="Greens", xgap=0, ygap=0,
+    colorscale="Greens", xgap=1, ygap=1,    # 간격 추가
     colorbar=dict(title="기업 수"),
     text=text_data,
     hovertemplate="%{y}/%{x}<br>기업수 %{text}<extra></extra>",
@@ -315,14 +315,18 @@ heat_data = go.Heatmap(
 
 fig = go.Figure([heat_sub, heat_data])
 
-# 주석 추가
+# 주석 추가 (동적 글자색)
+z_max = np.nanmax(pivot_full.values)
 for r_idx, row_name in enumerate(rows):
     for c_idx, col_name in enumerate(bin_labels):
         val = pivot_full.iat[r_idx, c_idx]
         if val:
+            # z값 기준으로 글자색 결정 (z_max의 50% 이상이면 흰색, 아니면 검정)
+            z_val = z_sub.iat[r_idx, c_idx] if r_idx == 0 else z_data.iat[r_idx, c_idx]
+            font_color = "white" if (not np.isnan(z_val) and z_val > z_max * 0.5) else "black"
             fig.add_annotation(
                 x=col_name, y=row_name, text=f"{val:,}",
-                showarrow=False, font=dict(color="black", size=12)
+                showarrow=False, font=dict(color=font_color, size=12)
             )
 
 fig.update_layout(
