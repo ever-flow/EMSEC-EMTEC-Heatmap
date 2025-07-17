@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 Streamlit · EMSEC × EMTEC 〈시각화 02 – 규모 변수〉
-ver 1.9 · 2025-07-16
-(Heatmap 간격 추가, 동적 글자색 적용)
+ver 2.0 · 2025-07-16
+(Heatmap 간격 추가, 동적 글자색 적용, 현지 화폐 단위 적용)
 
 주요 변경
 ─────────────────────────────────────────────────────────
 1. Heatmap에 xgap=1, ygap=1 추가로 셀 간 구분선 삽입
 2. Annotation 글자색을 z값에 따라 동적으로 설정 (밝은 셀: 검정, 어두운 셀: 흰색)
-3. 기존 text 배열 주입 및 hovertemplate 로직 유지
+3. 상장시장 필터에서 '전체' 삭제
+4. 국가별 현지 화폐 단위로 시각화 (USD 제거)
 """
 
 ###############################################################################
@@ -33,9 +34,6 @@ st.set_page_config(
 EXCHANGE_RATES = {
     '한국': 1380.0, '미국': 1.0, '일본': 157.0, 'Unclassified': 1.0
 }
-
-def convert_to_usd(val, country):
-    return np.nan if pd.isna(val) else val / EXCHANGE_RATES.get(country, 1.0)
 
 def parse_emtec_list(txt: str) -> List[str]:
     try:
@@ -99,24 +97,10 @@ def create_multi_class(df: pd.DataFrame) -> pd.DataFrame:
                 rows.append(new)
     return pd.DataFrame(rows)
 
-def add_fin_metrics(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    periods=["LTM","LTM-1","LTM-2","LTM-3"]
-    if "Market Cap (2024-12-31)" in df.columns:
-        df["Market Cap (2024-12-31)_USD"]=df.apply(
-            lambda x:convert_to_usd(x["Market Cap (2024-12-31)"],x["Country"]),axis=1)
-    for p in periods:
-        for base in ("Revenue","Total Assets"):
-            col=f"{base} ({p})"
-            if col in df.columns:
-                df[f"{col}_USD"]=df.apply(lambda x:convert_to_usd(x[col],x["Country"]),axis=1)
-    return df
-
 @st.cache_data(show_spinner=True)
 def load_data() -> pd.DataFrame:
     raw  = load_raw()
-    usd  = add_fin_metrics(raw)
-    multi= create_multi_class(usd)
+    multi= create_multi_class(raw)
     dfs=[]
     for yr in ["LTM","LTM-1","LTM-2","LTM-3"]:
         tmp = multi.copy()
@@ -133,16 +117,14 @@ with st.sidebar:
     year_sel = st.selectbox("기준 연도", ["LTM","LTM-1","LTM-2","LTM-3"])
     market_sel = st.selectbox(
         "상장시장",
-        ["전체","한국 전체","KOSPI","KOSDAQ",
+        ["한국 전체","KOSPI","KOSDAQ",
          "미국 전체","NASDAQ",
          "일본 전체","Prime (Domestic Stocks)",
          "Standard (Domestic Stocks)","Prime (Foreign Stocks)"]
     )
 
     country_filter = market_filter = None
-    if market_sel == "전체":
-        pass
-    elif "전체" in market_sel:
+    if "전체" in market_sel:
         country_filter = market_sel.split()[0]
     else:
         country_filter = (
@@ -192,9 +174,9 @@ with st.sidebar:
         )
 
     metric_base = {
-        "시가총액": "Market Cap (2024-12-31)_USD",
-        "자산총계": "Total Assets ({})_USD",
-        "매출액"  : "Revenue ({})_USD",
+        "시가총액": "Market Cap (2024-12-31)",
+        "자산총계": "Total Assets ({})",
+        "매출액"  : "Revenue ({})",
     }
     metric_name = st.selectbox("계측값", list(metric_base.keys()), key="metric_name")
     metric_col = (
@@ -208,7 +190,7 @@ with st.sidebar:
 DF = DF_ALL[DF_ALL.Year == year_sel].copy()
 
 if country_filter: DF = DF[DF.Country == country_filter]
-if  market_filter: DF = DF[DF.Market  == market_filter]
+if market_filter: DF = DF[DF.Market == market_filter]
 
 if class_type == "EMSEC":
     if sector_sel   != "전체": DF = DF[DF.Sector   == sector_sel]
@@ -231,6 +213,10 @@ if not DF.empty:
 if DF.empty:
     st.warning("조건에 맞는 데이터가 없습니다.")
     st.stop()
+
+# 현지 화폐 단위 결정
+country = DF['Country'].unique()[0]
+currency = {'한국': 'KRW', '미국': 'USD', '일본': 'JPY', 'Unclassified': 'USD'}.get(country, 'USD')
 
 ###############################################################################
 # 5. 구간(edge) 생성
@@ -272,7 +258,7 @@ pivot = (DF.groupby([row_level,"metric_bin"])["Company"]
 if pivot.empty:
     st.warning("조건에 맞는 데이터가 없어 집계표를 생성할 수 없습니다.")
     st.stop()
-    
+
 subtotal = pd.DataFrame(pivot.sum()).T
 subtotal.index=["Subtotal"]
 pivot_full = pd.concat([subtotal,pivot])
@@ -333,7 +319,7 @@ fig.update_layout(
     height=max(600, 35 * len(rows)),
     margin=dict(l=40, r=40, t=150, b=40),
     title=dict(
-        text=f"{metric_name} 분포 (단위: billion(10억) USD, {year_sel})",
+        text=f"{metric_name} 분포 (단위: billion(10억) {currency}, {year_sel})",
         x=0.5, xanchor="center", yanchor="top", pad=dict(t=20)
     ),
     xaxis=dict(side="top"),
